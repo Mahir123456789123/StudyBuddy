@@ -7,6 +7,7 @@ and sanitized error responses without leaking internal filepaths or stack traces
 """
 
 import time
+import os
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 

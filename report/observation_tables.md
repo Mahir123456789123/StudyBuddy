@@ -28,12 +28,12 @@ Measures HTTP status response codes, validation boundaries, error sanitization, 
 
 | Scenario                       | Endpoint    |   Expected Status |   Observed Status | Latency (ms)   | Outcome   | Header Present   |
 |:-------------------------------|:------------|------------------:|------------------:|:---------------|:----------|:-----------------|
-| Health Probe                   | GET /health |               200 |               200 | 3.38 ms        | PASS      | Yes              |
-| Supported Concept Question     | POST /ask   |               200 |               200 | 17.69 ms       | PASS      | Yes              |
-| Unsupported Question           | POST /ask   |               200 |               200 | 14.08 ms       | PASS      | Yes              |
-| Empty Question Rejection       | POST /ask   |               422 |               422 | 3.83 ms        | PASS      | Yes              |
-| Over-Length Question Rejection | POST /ask   |               422 |               422 | 4.11 ms        | PASS      | Yes              |
-| Backend Unavailable Simulation | POST /ask   |               500 |               500 | 13.41 ms       | PASS      | Yes              |
+| Health Probe                   | GET /health |               200 |               200 | 5.50 ms        | PASS      | Yes              |
+| Supported Concept Question     | POST /ask   |               200 |               200 | 83.52 ms       | PASS      | Yes              |
+| Unsupported Question           | POST /ask   |               200 |               200 | 34.14 ms       | PASS      | Yes              |
+| Empty Question Rejection       | POST /ask   |               422 |               422 | 3.79 ms        | PASS      | Yes              |
+| Over-Length Question Rejection | POST /ask   |               422 |               422 | 4.89 ms        | PASS      | Yes              |
+| Backend Unavailable Simulation | POST /ask   |               500 |               500 | 19.14 ms       | PASS      | Yes              |
 
 ## 4. Experiment 2: LoRA Hyperparameter Study (Section 10.4)
 

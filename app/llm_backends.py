@@ -64,19 +64,91 @@ class MockLLMBackend(LLMBackend):
             num_match = re.search(r"Number of questions requested:\s*(\d+)", prompt)
             num_q = int(num_match.group(1)) if num_match else 2
 
-            quiz_items = [
+            # Parse topic from prompt
+            topic_match = re.search(r"Topic:\s*([^\n\r]+)", prompt, re.IGNORECASE)
+            raw_topic = topic_match.group(1).strip() if topic_match else ""
+            topic_lower = raw_topic.lower()
+
+            # Dynamic question pools based on topic and course knowledge base
+            rag_pool = [
                 {
-                    "question": "What is the primary role of the low-rank matrices A and B in LoRA?",
+                    "question": "How does the bi-encoder architecture in sentence-transformers/all-MiniLM-L6-v2 process queries and documents?",
                     "options": [
-                        "To replace the entire weight matrix W with a random projection",
-                        "To decompose the weight update Delta W into W + (alpha/r)*B*A to reduce trainable parameters",
-                        "To quantize activations from 16-bit float into 4-bit NormalFloat",
-                        "To index embeddings inside a FAISS L2 flat vector index"
+                        "By concatenating query and documents into a single cross-attention matrix",
+                        "By independently encoding queries and documents into 384-dimensional dense vectors",
+                        "By performing sparse BM25 term frequency hashing on CPU registers",
+                        "By computing exact regex pattern matches across document tokens"
                     ],
                     "answer_index": 1,
-                    "explanation": "LoRA decomposes the weight update matrix Delta W into low-rank matrices B and A such that Delta W = (alpha/r)*B*A, keeping the original pre-trained weights frozen.",
-                    "source": "lab_manual_fine_tuning.pdf, Page 2"
+                    "explanation": "Bi-encoders encode queries and passages independently into a continuous semantic vector space where cosine or Euclidean distance models conceptual proximity.",
+                    "source": "lecture_slides_rag_and_embeddings.pdf, Page 1"
                 },
+                {
+                    "question": "What is the recommended chunk configuration in our course to prevent losing context across split boundaries?",
+                    "options": [
+                        "chunk_size=100 with zero overlap to maximize chunk count",
+                        "chunk_size=500 with chunk_overlap=80 characters using RecursiveCharacterTextSplitter",
+                        "chunk_size=5000 with chunk_overlap=1000 characters to retain full chapters",
+                        "chunk_size=50 with chunk_overlap=50 characters for character-level indexing"
+                    ],
+                    "answer_index": 1,
+                    "explanation": "RecursiveCharacterTextSplitter with chunk_size=500 and overlap=80 preserves boundary sentences without topic dilution.",
+                    "source": "lecture_slides_rag_and_embeddings.pdf, Page 2"
+                },
+                {
+                    "question": "How does RAG mitigate factual hallucination in generative language models?",
+                    "options": [
+                        "By increasing model sampling temperature to 1.5",
+                        "By conditioning generation strictly on verified retrieved passages with explicit refusal markers",
+                        "By updating the base transformer weights during inference backpropagation",
+                        "By running gradient descent on user prompts"
+                    ],
+                    "answer_index": 1,
+                    "explanation": "RAG injects retrieved factual chunks into the prompt window and instructs the model to refuse (e.g. INSUFFICIENT_CONTEXT) if evidence is absent.",
+                    "source": "lecture_slides_rag_and_embeddings.pdf, Page 4"
+                }
+            ]
+
+            faiss_pool = [
+                {
+                    "question": "What distance metric does faiss.IndexFlatL2 compute during nearest-neighbor retrieval?",
+                    "options": [
+                        "Cosine similarity directly without normalization",
+                        "Exact Euclidean (L2) squared distance without approximation",
+                        "Manhattan (L1) distance",
+                        "Dot product over unnormalized vectors"
+                    ],
+                    "answer_index": 1,
+                    "explanation": "IndexFlatL2 computes exact Euclidean (L2) distance between query vectors and stored document chunk embeddings without compression, guaranteeing 100% recall.",
+                    "source": "lecture_slides_rag_and_embeddings.pdf, Page 3"
+                },
+                {
+                    "question": "When should an engineering system transition from FAISS IndexFlatL2 to IndexIVFFlat?",
+                    "options": [
+                        "When the corpus has fewer than 50 vectors",
+                        "When scaling to massive vector datasets (>100,000 vectors) where sub-linear query latency is required",
+                        "When using sparse TF-IDF word counts instead of dense embeddings",
+                        "When GPU acceleration is completely disabled"
+                    ],
+                    "answer_index": 1,
+                    "explanation": "IndexIVFFlat clusters vector spaces into Voronoi cells to accelerate search sub-linearly on large scale databases, trading exact recall for speed.",
+                    "source": "lecture_slides_rag_and_embeddings.pdf, Page 3"
+                },
+                {
+                    "question": "Why are embeddings L2-normalized before insertion if cosine similarity search is desired in IndexFlatL2?",
+                    "options": [
+                        "Because squared Euclidean distance on unit vectors is monotonic with cosine distance (||u - v||^2 = 2 - 2*<u,v>)",
+                        "Because FAISS raises an exception on non-normalized vectors",
+                        "Because normalization reduces vector dimension from 384 to 128",
+                        "Because normalization removes stop words"
+                    ],
+                    "answer_index": 0,
+                    "explanation": "Normalizing vectors to unit length establishes an exact monotonic mapping between Euclidean distance and cosine similarity.",
+                    "source": "glossary_of_llm_terms.docx"
+                }
+            ]
+
+            qlora_pool = [
                 {
                     "question": "Which quantization format does QLoRA introduce for storing base model weights?",
                     "options": [
@@ -90,17 +162,71 @@ class MockLLMBackend(LLMBackend):
                     "source": "lab_manual_fine_tuning.pdf, Page 4"
                 },
                 {
-                    "question": "What distance metric does faiss.IndexFlatL2 compute during nearest-neighbor retrieval?",
+                    "question": "What is the primary memory saving achieved by Double Quantization in QLoRA?",
                     "options": [
-                        "Cosine similarity directly without normalization",
-                        "Exact Euclidean (L2) squared distance",
-                        "Manhattan (L1) distance",
-                        "Dot product over unnormalized vectors"
+                        "It replaces AdamW optimizer states with zero memory",
+                        "It quantizes the quantization constants, saving approximately 0.37 bits per parameter",
+                        "It compresses model activations from 16-bit to 1-bit",
+                        "It discards 50% of the attention projection heads"
                     ],
                     "answer_index": 1,
-                    "explanation": "IndexFlatL2 computes exact Euclidean (L2) distance between query vectors and stored document chunk embeddings without compression.",
-                    "source": "lecture_slides_rag_and_embeddings.pdf, Page 3"
+                    "explanation": "Double quantization quantizes the first-stage quantization scale factors, saving approximately 0.37 bits per parameter.",
+                    "source": "lab_manual_fine_tuning.pdf, Page 4"
                 },
+                {
+                    "question": "Why is bnb_4bit_compute_dtype set to torch.float16 during QLoRA training?",
+                    "options": [
+                        "Because 4-bit floating point hardware does not support addition",
+                        "Because forward and backward passes dequantize weights into 16-bit precision for computation while storing in 4-bit NF4",
+                        "Because FP16 uses less disk space than NF4",
+                        "Because AdamW requires 8-bit gradients"
+                    ],
+                    "answer_index": 1,
+                    "explanation": "Weights are dequantized on-the-fly to FP16/BF16 during computation to ensure high gradient precision.",
+                    "source": "lab_manual_fine_tuning.pdf, Page 4"
+                }
+            ]
+
+            lora_pool = [
+                {
+                    "question": "What is the primary role of the low-rank matrices A and B in LoRA?",
+                    "options": [
+                        "To replace the entire weight matrix W with a random projection",
+                        "To decompose the weight update Delta W into W + (alpha/r)*B*A to reduce trainable parameters",
+                        "To quantize activations from 16-bit float into 4-bit NormalFloat",
+                        "To index embeddings inside a FAISS L2 flat vector index"
+                    ],
+                    "answer_index": 1,
+                    "explanation": "LoRA decomposes the weight update matrix Delta W into low-rank matrices B and A such that Delta W = (alpha/r)*B*A, keeping the original pre-trained weights frozen.",
+                    "source": "lab_manual_fine_tuning.pdf, Page 2"
+                },
+                {
+                    "question": "How is matrix B initialized in LoRA at the start of training?",
+                    "options": [
+                        "Initialized from a Gaussian distribution with mean 1",
+                        "Initialized to all zeros to guarantee Delta W = 0 at training onset",
+                        "Initialized to an identity matrix",
+                        "Initialized with random orthogonal vectors"
+                    ],
+                    "answer_index": 1,
+                    "explanation": "Matrix B is initialized to zeros and matrix A to Gaussian random values, ensuring Delta W is zero before any gradient steps.",
+                    "source": "lab_manual_fine_tuning.pdf, Page 2"
+                },
+                {
+                    "question": "Which transformer modules in Qwen2.5 are the standard targets for LoRA adaptation?",
+                    "options": [
+                        "The embedding matrix only",
+                        "The attention projection matrices q_proj and v_proj",
+                        "The final layer normalization weights only",
+                        "The softmax activation functions"
+                    ],
+                    "answer_index": 1,
+                    "explanation": "In Qwen2.5 models, attention projection layers such as q_proj and v_proj are standard target modules.",
+                    "source": "lab_manual_fine_tuning.pdf, Page 2"
+                }
+            ]
+
+            langgraph_pool = [
                 {
                     "question": "In LangGraph, how is state managed across graph execution nodes?",
                     "options": [
@@ -114,27 +240,142 @@ class MockLLMBackend(LLMBackend):
                     "source": "course_notes_orchestration_and_apis.txt"
                 },
                 {
-                    "question": "Why is the Qwen chat template applied before tokenization in fine-tuning?",
+                    "question": "How do bounded retries protect a LangGraph RAG workflow from latency runaway?",
                     "options": [
-                        "To translate text into binary embeddings",
-                        "To structure dialogue turns with special start and end tokens expected by the model",
-                        "To compress tokens using Huffman encoding",
-                        "To enforce FAISS indexing constraints"
+                        "By checking retry_count < 1 on conditional edges to limit query rewriting to at most one retry",
+                        "By terminating the server process after 10 seconds",
+                        "By dropping all incoming network connections",
+                        "By setting the model temperature to zero"
                     ],
-                    "answer_index": 1,
-                    "explanation": "Chat templates format multi-turn roles (system, user, assistant) with specific delimiter tokens like <|im_start|> and <|im_end|> so the model recognizes instruction boundaries.",
-                    "source": "lab_manual_fine_tuning.pdf, Page 5"
+                    "answer_index": 0,
+                    "explanation": "Conditional edges enforce retry_count < 1, routing uncorrectable queries to fallback after a single retry.",
+                    "source": "course_notes_orchestration_and_apis.txt"
+                },
+                {
+                    "question": "What distinguishes cyclic LangGraph workflows from linear RAG chains?",
+                    "options": [
+                        "The ability to execute self-correction loops, dynamic intent branching, and verification steps",
+                        "LangGraph requires GPU clusters while linear chains run on CPU",
+                        "LangGraph cannot output text",
+                        "Linear chains cannot use vector databases"
+                    ],
+                    "answer_index": 0,
+                    "explanation": "LangGraph supports directed state graphs with cycles, conditional transitions, and self-correction loops.",
+                    "source": "course_notes_orchestration_and_apis.txt"
                 }
             ]
-            selected = quiz_items[:num_q]
-            return json.dumps(selected, indent=2)
+
+            fastapi_pool = [
+                {
+                    "question": "Why should heavy components like FAISS indexes and embedding models be loaded in a FastAPI lifespan handler?",
+                    "options": [
+                        "To initialize them once at server startup in app.state rather than reloading per request",
+                        "Because FastAPI prohibits loading models outside HTML templates",
+                        "To avoid creating Python virtual environments",
+                        "Because Windows cannot load FAISS inside endpoints"
+                    ],
+                    "answer_index": 0,
+                    "explanation": "The lifespan handler caches heavy objects once in memory, avoiding catastrophic multi-second latencies per request.",
+                    "source": "course_notes_orchestration_and_apis.txt"
+                },
+                {
+                    "question": "Why is multiple-choice quiz grading performed deterministically in application code rather than by an LLM?",
+                    "options": [
+                        "To guarantee 100% grading objectivity and eliminate LLM hallucination or grading bias",
+                        "Because LLMs cannot process numbers",
+                        "Because grading requires GPU CUDA tensors",
+                        "Because JSON cannot be sent over HTTP"
+                    ],
+                    "answer_index": 0,
+                    "explanation": "Deterministic index comparison in Python code guarantees exact scoring with zero hallucination.",
+                    "source": "course_notes_orchestration_and_apis.txt"
+                }
+            ]
+
+            # Select pool based on user's topic
+            if any(k in topic_lower for k in ["rag", "retriev", "dense", "bi-encoder", "minilm", "embedding", "chunk"]):
+                selected_pool = rag_pool
+            elif any(k in topic_lower for k in ["faiss", "index", "vector", "flatl2", "ivfflat"]):
+                selected_pool = faiss_pool
+            elif any(k in topic_lower for k in ["qlora", "quantiz", "nf4", "double quant", "bitsandbytes"]):
+                selected_pool = qlora_pool
+            elif any(k in topic_lower for k in ["langgraph", "orchestrat", "graph", "workflow", "state", "retry"]):
+                selected_pool = langgraph_pool
+            elif any(k in topic_lower for k in ["fastapi", "api", "production", "endpoint", "pydantic", "lifespan"]):
+                selected_pool = fastapi_pool
+            elif any(k in topic_lower for k in ["lora", "peft", "fine-tun", "adapter", "rank", "alpha"]):
+                selected_pool = lora_pool
+            else:
+                # Topic not in course syllabus (e.g. "mahir", "weather", "recipe")
+                selected_pool = [
+                    {
+                        "question": f"The topic '{raw_topic}' is not in the LLM Engineering course documents. Which of the following is an authorized course topic?",
+                        "options": [
+                            "Low-Rank Adaptation (LoRA) and QLoRA",
+                            "Dense Retrieval with all-MiniLM-L6-v2 and FAISS",
+                            "LangGraph Stateful Workflows & Bounded Retries",
+                            "All of the above"
+                        ],
+                        "answer_index": 3,
+                        "explanation": f"'{raw_topic}' is outside the LLM engineering syllabus. Authorized course topics include LoRA/QLoRA, RAG/Embeddings, FAISS, and LangGraph.",
+                        "source": "Course Syllabus"
+                    }
+                ]
+
+            # If user requested more than len(selected_pool), combine with other course questions
+            all_course_items = lora_pool + qlora_pool + rag_pool + faiss_pool + langgraph_pool + fastapi_pool
+            needed = num_q
+            result_items = list(selected_pool[:needed])
+            if len(result_items) < needed:
+                for item in all_course_items:
+                    if item not in result_items:
+                        result_items.append(item)
+                    if len(result_items) >= needed:
+                        break
+
+            return json.dumps(result_items[:needed], indent=2)
 
         # Handle Interview Question Requests
         if "Provide ONE clear, realistic technical interview question" in prompt:
-            return (
-                "Explain the mathematical formulation of LoRA. How do rank r and scaling factor alpha "
-                "influence training stability and parameter efficiency in Qwen2.5-0.5B?"
-            )
+            topic_match = re.search(r"Topic:\s*([^\n\r]+)", prompt, re.IGNORECASE)
+            raw_topic = topic_match.group(1).strip() if topic_match else ""
+            t_low = raw_topic.lower()
+
+            if any(k in t_low for k in ["rag", "retriev", "dense", "bi-encoder", "minilm", "embedding", "chunk"]):
+                return (
+                    "In dense retrieval architectures, explain how bi-encoders differ from cross-encoders in computation and latency. "
+                    "Why does our course use sentence-transformers/all-MiniLM-L6-v2 for vector indexing instead of cross-encoder scoring per query?"
+                )
+            elif any(k in t_low for k in ["faiss", "index", "vector", "flatl2", "ivfflat"]):
+                return (
+                    "Compare faiss.IndexFlatL2 with inverted file indexing (IndexIVFFlat). "
+                    "At what knowledge base scale does exact L2 search become a bottleneck, and how do clustering techniques mitigate search latency while affecting recall?"
+                )
+            elif any(k in t_low for k in ["qlora", "quantiz", "nf4", "double quant", "bitsandbytes"]):
+                return (
+                    "What are the three core algorithmic innovations introduced by QLoRA? "
+                    "Explain why uniform INT4 quantization introduces higher error than NormalFloat4 (NF4) for foundation model weights."
+                )
+            elif any(k in t_low for k in ["langgraph", "orchestrat", "graph", "workflow", "state", "retry"]):
+                return (
+                    "How does LangGraph enable cyclic self-correction loops compared to linear RAG chains? "
+                    "How do bounded retries (retry_count < 1) protect against latency runaway when a retrieval step fails verification?"
+                )
+            elif any(k in t_low for k in ["fastapi", "api", "production", "endpoint", "pydantic", "lifespan"]):
+                return (
+                    "Explain why heavy RAG components (embedding models, FAISS vector indexes, LLM backends) must be initialized "
+                    "in a FastAPI lifespan context manager rather than inside individual endpoint handlers."
+                )
+            elif any(k in t_low for k in ["lora", "peft", "fine-tun", "adapter", "rank", "alpha"]):
+                return (
+                    "Explain the mathematical formulation of LoRA. How do rank r and scaling factor alpha "
+                    "influence training stability and parameter efficiency in Qwen2.5-0.5B?"
+                )
+            else:
+                return (
+                    f"Notice: The topic '{raw_topic}' is not found in the LLM Engineering course materials. "
+                    "Please select an authorized topic: LoRA, QLoRA, RAG & Embeddings, FAISS Vector Search, LangGraph Orchestration, or FastAPI Deployment."
+                )
 
         # Handle Interview Evaluation Requests
         if "Evaluation Rubric:" in prompt:

@@ -218,8 +218,8 @@
       <p style="color: var(--text-muted); margin-bottom: 16px;">Generate multiple-choice questions from course documents. Multiple-choice grading is 100% deterministic.</p>
       <div style="display: flex; gap: 12px;">
         <div class="form-group" style="flex: 3;">
-          <label for="quizTopic">Topic:</label>
-          <input type="text" id="quizTopic" value="LoRA, QLoRA, and Quantization" />
+          <label for="quizTopic">Topic (select or type course topic):</label>
+          <input type="text" id="quizTopic" list="courseTopics" value="RAG and Dense Embeddings" />
         </div>
         <div class="form-group" style="flex: 1;">
           <label for="quizNum">Questions (1-5):</label>
@@ -246,10 +246,20 @@
       <h2>Technical Interview Practice</h2>
       <p style="color: var(--text-muted); margin-bottom: 16px;">Practice answering challenging engineering questions evaluated against course rubrics.</p>
       <div class="form-group">
-        <label for="interviewTopic">Topic Focus:</label>
-        <input type="text" id="interviewTopic" value="Fine-Tuning Trade-offs and Vector Databases" />
+        <label for="interviewTopic">Topic Focus (select or type course topic):</label>
+        <input type="text" id="interviewTopic" list="courseTopics" value="RAG Architecture and Retrieval" />
       </div>
       <button class="action-btn" onclick="getInterviewQuestion()">Get Interview Question</button>
+
+      <!-- Datalist shared between quiz and interview -->
+      <datalist id="courseTopics">
+        <option value="RAG and Dense Embeddings">
+        <option value="FAISS Vector Indexing and Search">
+        <option value="LoRA and Parameter-Efficient Fine-Tuning">
+        <option value="QLoRA and 4-Bit NormalFloat Quantization">
+        <option value="LangGraph Stateful Workflows & Bounded Retries">
+        <option value="FastAPI Deployment and Production Optimization">
+      </datalist>
 
       <div id="interviewQuestionArea" style="display: none; margin-top: 20px;">
         <div class="response-card" style="border-left: 4px solid var(--accent);">
