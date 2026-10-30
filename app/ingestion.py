@@ -26,8 +26,24 @@ from app.logging_utils import logger
 
 
 TOPIC_MAPPING = {
+    "module_1": "fine_tuning_and_peft",
+    "module 1": "fine_tuning_and_peft",
+    "module_2": "rag_and_embeddings",
+    "module 2": "rag_and_embeddings",
     "lab_manual": "fine_tuning_and_peft",
+    "finetuning": "fine_tuning_and_peft",
+    "fine-tuning": "fine_tuning_and_peft",
+    "fine_tuning": "fine_tuning_and_peft",
+    "peft": "fine_tuning_and_peft",
+    "lora": "fine_tuning_and_peft",
+    "quantization": "fine_tuning_and_peft",
+    "compression": "fine_tuning_and_peft",
+    "hyperparameter": "fine_tuning_and_peft",
+    "inference": "fine_tuning_and_peft",
+    "latency": "fine_tuning_and_peft",
+    "rag": "rag_and_embeddings",
     "lecture_slides": "rag_and_embeddings",
+    "retrieval": "rag_and_embeddings",
     "course_notes": "orchestration_and_apis",
     "glossary": "course_glossary_and_definitions",
 }

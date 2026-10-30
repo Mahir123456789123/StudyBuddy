@@ -1,0 +1,4 @@
+Config,Allocated VRAM (MB),Reserved VRAM (MB),Avg Latency (ms),Quality
+Baseline FP16,1050.0,1200.0,145.2,High
+INT8 Quantization,620.0,750.0,188.5,High
+INT4 / NF4 Double Quant,382.0,490.0,218.4,High

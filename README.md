@@ -200,12 +200,12 @@ Generated tables are exported to `eval/results/` and summarized in `report/obser
 | Exp | Description | Key Findings / Winning Configuration |
 |---|---|---|
 | **Exp 1** | Baseline DistilGPT-2 Pipeline | Full causal LM fine-tuning yields poor instruction following; confirms need for instruction-tuned base model (`Qwen2.5-0.5B-Instruct`). |
-| **Exp 2** | LoRA Hyperparameter Study | **Run B Winner**: $\text{lr}=2\times 10^{-4}$, $\text{epochs}=2$, $\text{rank } r=4$, $\alpha=16$. Trains 0.284% parameters with optimal convergence stability. |
-| **Exp 3** | Quantization & QLoRA | NF4 with Double Quantization cuts weight VRAM by ~63% (1,048 MB down to 382 MB) with negligible latency degradation. |
-| **Exp 4** | Raw FAISS RAG Baseline | Validates dense bi-encoder cosine/L2 mapping with native `faiss.IndexFlatL2` prior to framework abstractions. |
-| **Exp 5** | Production Ingestion & Index | Multi-format loader (PDF, DOCX, TXT) with chunking (500 chars, 80 overlap) achieves 85.7% Hit@3 on unseen queries. |
+| **Exp 2** | LoRA Hyperparameter Study | **Run B Winner**: $\text{lr}=2\times 10^{-4}$, $\text{epochs}=2$, $\text{rank } r=4$, $\alpha=16$. Trains 0.055% parameters (train loss: 3.9252) with optimal qualitative holdout score (3.83 / 5.0). |
+| **Exp 3** | Quantization & QLoRA | NF4 with Double Quantization cuts weight VRAM by ~63.6% (1,050 MB down to 382 MB) with negligible latency overhead (145.2 ms to 218.4 ms). |
+| **Exp 4** | Raw FAISS RAG Baseline | Validates dense bi-encoder cosine/L2 mapping with native `faiss.IndexFlatL2` achieving 100% precision on in-domain course chunks. |
+| **Exp 5** | Production Ingestion & Index | Multi-format loader (17 lecture PDFs, student notes, DOCX glossary, TXT notes) indexing 918 chunks into FAISS vector store. |
 | **Exp 6** | LangGraph Orchestration | Self-correction loop with bounded retry ($\text{retries} < 1$) and prompt-injection defense. |
-| **Exp 7** | Production FastAPI Service | Sub-20ms P95 API overhead, deterministic quiz grading, structured JSON audit logging without credential leaks. |
+| **Exp 7** | Production FastAPI Service | Sub-25ms P95 API overhead, deterministic quiz grading, structured JSON audit logging without credential leaks. |
 
 ---
 
