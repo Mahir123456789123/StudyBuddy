@@ -1,0 +1,10 @@
+# Retrieval Evaluation Results
+
+## 1. Chunk Size Comparison
+
+|   Chunk Size |   Chunk Overlap |   Total Chunks | Hit@1 (%)   | Hit@3 (%)   | Trade-off Observation                        |
+|-------------:|----------------:|---------------:|:------------|:------------|:---------------------------------------------|
+|          300 |              50 |             55 | 57.1%       | 85.7%       | Granular but fragmented context              |
+|          500 |              80 |             31 | 78.6%       | 85.7%       | Optimal balance of coherence and specificity |
+|          800 |             120 |             22 | 78.6%       | 85.7%       | Broad context, risk of tangential dilution   |
+

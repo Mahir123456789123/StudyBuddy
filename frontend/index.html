@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StudyBuddy | LLM Engineering Course Tutor</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --primary: #38bdf8;
+      --primary-hover: #0284c7;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --accent: #818cf8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+    h1 {
+      font-size: 1.8rem;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .status-badge {
+      font-size: 0.85rem;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      background-color: #1e3a8a;
+      color: #93c5fd;
+      border: 1px solid #3b82f6;
+    }
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .tab-btn {
+      padding: 10px 18px;
+      background: var(--card-bg);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .tab-btn.active, .tab-btn:hover {
+      background: var(--primary);
+      color: #0f172a;
+      border-color: var(--primary);
+    }
+    .panel {
+      display: none;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    .panel.active { display: block; }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+    input[type="text"], textarea, select {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #0f172a;
+      color: var(--text);
+      font-size: 1rem;
+    }
+    button.action-btn {
+      padding: 12px 24px;
+      background: var(--primary);
+      color: #0f172a;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button.action-btn:hover { background: var(--primary-hover); }
+    .response-card {
+      margin-top: 20px;
+      padding: 16px;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      white-space: pre-wrap;
+    }
+    .citation-list {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+    .citation-item {
+      display: inline-block;
+      background: #1e293b;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-right: 6px;
+      margin-bottom: 6px;
+      border: 1px solid var(--border);
+    }
+    .quiz-card {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .option-label {
+      display: block;
+      padding: 10px 14px;
+      background: #1e293b;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin: 8px 0;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .option-label:hover { border-color: var(--primary); }
+    .option-label input { margin-right: 10px; }
+    .grade-box {
+      padding: 16px;
+      border-radius: 8px;
+      background: #1e3a8a;
+      color: #bfdbfe;
+      margin-bottom: 16px;
+      font-weight: 600;
+      font-size: 1.1rem;
+    }
+    .grade-item {
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      border-left: 4px solid var(--primary);
+      background: #0f172a;
+    }
+    .grade-item.correct { border-left-color: var(--success); }
+    .grade-item.incorrect { border-left-color: var(--danger); }
+    .latency-pill {
+      float: right;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>StudyBuddy <span>📚</span></h1>
+        <p style="color: var(--text-muted); font-size: 0.95rem;">LLM Engineering Course Tutor & Technical Interview Assistant</p>
+      </div>
+      <div id="healthBadge" class="status-badge">Connecting...</div>
+    </header>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('ask')">Concept Q&A</button>
+      <button class="tab-btn" onclick="switchTab('quiz')">Course Quiz</button>
+      <button class="tab-btn" onclick="switchTab('interview')">Interview Practice</button>
+    </div>
+
+    <!-- Panel 1: Ask Concept -->
+    <div id="panel-ask" class="panel active">
+      <h2>Ask a Course Concept Question</h2>
+      <p style="color: var(--text-muted); margin-bottom: 16px;">Answers are strictly grounded in course materials (Lab manuals, Lecture slides, Notes, Glossary).</p>
+      <div class="form-group">
+        <label for="conceptInput">Your Question:</label>
+        <textarea id="conceptInput" rows="3" placeholder="e.g. How does LoRA rank r and alpha influence parameter updates?"></textarea>
+      </div>
+      <button class="action-btn" onclick="submitAsk()">Ask Tutor</button>
+
+      <div id="askResult" style="display: none;" class="response-card">
+        <span id="askLatency" class="latency-pill"></span>
+        <h4 style="color: var(--primary); margin-bottom: 8px;">Tutor Explanation:</h4>
+        <div id="askAnswer"></div>
+        <div id="askSources" class="citation-list"></div>
+      </div>
+    </div>
+
+    <!-- Panel 2: Quiz -->
+    <div id="panel-quiz" class="panel">
+      <h2>Generate & Take Course Quiz</h2>
+      <p style="color: var(--text-muted); margin-bottom: 16px;">Generate multiple-choice questions from course documents. Multiple-choice grading is 100% deterministic.</p>
+      <div style="display: flex; gap: 12px;">
+        <div class="form-group" style="flex: 3;">
+          <label for="quizTopic">Topic:</label>
+          <input type="text" id="quizTopic" value="LoRA, QLoRA, and Quantization" />
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label for="quizNum">Questions (1-5):</label>
+          <select id="quizNum">
+            <option value="1">1 Question</option>
+            <option value="2">2 Questions</option>
+            <option value="3" selected>3 Questions</option>
+            <option value="5">5 Questions</option>
+          </select>
+        </div>
+      </div>
+      <button class="action-btn" onclick="generateQuiz()">Generate Quiz</button>
+
+      <div id="quizArea" style="margin-top: 24px; display: none;">
+        <div id="quizContainer"></div>
+        <button class="action-btn" style="background: var(--success); color: white;" onclick="submitQuizAnswers()">Submit Answers for Grading</button>
+      </div>
+
+      <div id="gradeResult" style="margin-top: 24px; display: none;"></div>
+    </div>
+
+    <!-- Panel 3: Interview -->
+    <div id="panel-interview" class="panel">
+      <h2>Technical Interview Practice</h2>
+      <p style="color: var(--text-muted); margin-bottom: 16px;">Practice answering challenging engineering questions evaluated against course rubrics.</p>
+      <div class="form-group">
+        <label for="interviewTopic">Topic Focus:</label>
+        <input type="text" id="interviewTopic" value="Fine-Tuning Trade-offs and Vector Databases" />
+      </div>
+      <button class="action-btn" onclick="getInterviewQuestion()">Get Interview Question</button>
+
+      <div id="interviewQuestionArea" style="display: none; margin-top: 20px;">
+        <div class="response-card" style="border-left: 4px solid var(--accent);">
+          <h4 style="color: var(--accent); margin-bottom: 6px;">Interviewer Question:</h4>
+          <p id="interviewQuestionText" style="font-weight: 500;"></p>
+        </div>
+        <div class="form-group" style="margin-top: 16px;">
+          <label for="interviewAnswerInput">Your Answer:</label>
+          <textarea id="interviewAnswerInput" rows="4" placeholder="Explain your answer with technical terminology, trade-offs, and parameters..."></textarea>
+        </div>
+        <button class="action-btn" onclick="submitInterviewAnswer()">Submit for Rubric Feedback</button>
+      </div>
+
+      <div id="interviewFeedbackArea" style="display: none; margin-top: 20px;" class="response-card">
+        <h4 style="color: var(--success); margin-bottom: 8px;">Evaluation Feedback:</h4>
+        <div id="interviewFeedbackText"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentQuizId = null;
+    let currentQuizQuestions = [];
+
+    async function checkHealth() {
+      try {
+        const res = await fetch('/health');
+        const data = await res.json();
+        const badge = document.getElementById('healthBadge');
+        if (data.status === 'ok') {
+          badge.textContent = `Online (${data.backend} | Index: ${data.index_loaded ? 'Ready' : 'Empty'})`;
+          badge.style.backgroundColor = '#065f46';
+          badge.style.borderColor = '#10b981';
+          badge.style.color = '#a7f3d0';
+        }
+      } catch (e) {
+        const badge = document.getElementById('healthBadge');
+        badge.textContent = 'Backend Offline';
+        badge.style.backgroundColor = '#7f1d1d';
+        badge.style.borderColor = '#ef4444';
+        badge.style.color = '#fecaca';
+      }
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById('panel-' + tab).classList.add('active');
+    }
+
+    async function submitAsk() {
+      const q = document.getElementById('conceptInput').value.trim();
+      if (!q) return alert('Please enter a question.');
+
+      const resultBox = document.getElementById('askResult');
+      const answerBox = document.getElementById('askAnswer');
+      const sourcesBox = document.getElementById('askSources');
+      const latencyPill = document.getElementById('askLatency');
+
+      answerBox.textContent = 'Retrieving course documents and synthesizing response...';
+      sourcesBox.innerHTML = '';
+      resultBox.style.display = 'block';
+
+      try {
+        const res = await fetch('/ask', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ question: q })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Error processing question');
+
+        answerBox.textContent = data.answer;
+        latencyPill.textContent = `${data.latency_ms} ms (Retries: ${data.retries})`;
+
+        if (data.sources && data.sources.length > 0) {
+          sourcesBox.innerHTML = '<strong>Verified Source Citations:</strong><br/>' +
+            data.sources.map(s => `<span class="citation-item">📄 ${s.source} (Page ${s.page})</span>`).join('');
+        } else {
+          sourcesBox.innerHTML = '<em>No verified sources retrieved for this query.</em>';
+        }
+      } catch (err) {
+        answerBox.textContent = 'Error: ' + err.message;
+      }
+    }
+
+    async function generateQuiz() {
+      const topic = document.getElementById('quizTopic').value.trim();
+      const num = parseInt(document.getElementById('quizNum').value, 10);
+      const quizArea = document.getElementById('quizArea');
+      const container = document.getElementById('quizContainer');
+      const gradeArea = document.getElementById('gradeResult');
+
+      gradeArea.style.display = 'none';
+      container.innerHTML = '<p style="color: var(--primary);">Retrieving facts and compiling multiple-choice items...</p>';
+      quizArea.style.display = 'block';
+
+      try {
+        const res = await fetch('/quiz', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ topic: topic, num_questions: num })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Error generating quiz');
+
+        currentQuizId = data.quiz_id;
+        currentQuizQuestions = data.questions;
+
+        let html = '';
+        data.questions.forEach((q, qIdx) => {
+          html += `
+            <div class="quiz-card">
+              <h4 style="margin-bottom: 10px;">${qIdx + 1}. ${q.question}</h4>
+              ${q.options.map((opt, oIdx) => `
+                <label class="option-label">
+                  <input type="radio" name="q_${qIdx}" value="${oIdx}">
+                  ${opt}
+                </label>
+              `).join('')}
+            </div>
+          `;
+        });
+        container.innerHTML = html;
+      } catch (err) {
+        container.innerHTML = '<p style="color: var(--danger);">Error: ' + err.message + '</p>';
+      }
+    }
+
+    async function submitQuizAnswers() {
+      if (!currentQuizId) return;
+
+      const answers = [];
+      for (let i = 0; i < currentQuizQuestions.length; i++) {
+        const selected = document.querySelector(`input[name="q_${i}"]:checked`);
+        answers.push(selected ? parseInt(selected.value, 10) : -1);
+      }
+
+      try {
+        const res = await fetch('/quiz/grade', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ quiz_id: currentQuizId, answers: answers })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Grading failed');
+
+        const gradeArea = document.getElementById('gradeResult');
+        let html = `
+          <div class="grade-box">
+            Final Score: ${data.score} / ${data.total} (${data.percentage}%)
+            <span class="latency-pill" style="color: #bfdbfe;">Deterministic Python Grading (${data.latency_ms} ms)</span>
+          </div>
+        `;
+
+        data.results.forEach(r => {
+          const cls = r.is_correct ? 'correct' : 'incorrect';
+          html += `
+            <div class="grade-item ${cls}">
+              <p><strong>${r.question}</strong></p>
+              <p style="margin: 4px 0;">Your Answer: <em>${r.selected_option}</em> ${r.is_correct ? '✅' : '❌'}</p>
+              ${!r.is_correct ? `<p style="color: var(--success); margin: 4px 0;">Correct Answer: <strong>${r.correct_option}</strong></p>` : ''}
+              <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 6px;">📖 <strong>Explanation:</strong> ${r.explanation} (Source: ${r.source})</p>
+            </div>
+          `;
+        });
+
+        gradeArea.innerHTML = html;
+        gradeArea.style.display = 'block';
+        gradeArea.scrollIntoView({ behavior: 'smooth' });
+      } catch (err) {
+        alert('Grading error: ' + err.message);
+      }
+    }
+
+    async function getInterviewQuestion() {
+      const topic = document.getElementById('interviewTopic').value.trim();
+      const area = document.getElementById('interviewQuestionArea');
+      const qText = document.getElementById('interviewQuestionText');
+      document.getElementById('interviewFeedbackArea').style.display = 'none';
+
+      qText.textContent = 'Synthesizing technical question from course knowledge base...';
+      area.style.display = 'block';
+
+      try {
+        const res = await fetch('/interview', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ topic: topic })
+        });
+        const data = await res.json();
+        qText.textContent = data.feedback_or_question;
+      } catch (err) {
+        qText.textContent = 'Error: ' + err.message;
+      }
+    }
+
+    async function submitInterviewAnswer() {
+      const q = document.getElementById('interviewQuestionText').textContent;
+      const ans = document.getElementById('interviewAnswerInput').value.trim();
+      if (!ans) return alert('Please enter your candidate answer.');
+
+      const fbArea = document.getElementById('interviewFeedbackArea');
+      const fbText = document.getElementById('interviewFeedbackText');
+
+      fbText.textContent = 'Comparing response against course rubric...';
+      fbArea.style.display = 'block';
+
+      try {
+        const res = await fetch('/interview', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ question: q, student_answer: ans })
+        });
+        const data = await res.json();
+        fbText.textContent = data.feedback_or_question;
+        fbArea.scrollIntoView({ behavior: 'smooth' });
+      } catch (err) {
+        fbText.textContent = 'Error: ' + err.message;
+      }
+    }
+
+    // Initialize status check on page load
+    checkHealth();
+  </script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+LLM ENGINEERING COURSE NOTES: ORCHESTRATION, WORKFLOWS, AND PRODUCTION APIS
+
+1. Stateful Orchestration with LangGraph
+Standard RAG pipelines follow a rigid linear sequence: Retrieve -> Augment -> Generate. Real-world pedagogical assistants require conditional logic, verification, and self-correction loops.
+LangGraph models LLM applications as directed state graphs:
+- State Schema: Defined using Python TypedDict (or Pydantic), tracking question, mode, intent, context, retrieved sources, draft response, retry count, and final answer.
+- Graph Nodes: Python functions that execute distinct computational or LLM steps (e.g., classify_intent, retrieve, draft_answer, review_answer, generate_quiz, validate_quiz, fallback).
+- Conditional Edges: Decision functions that route execution based on state values (e.g., routing by intent or checking if draft answer is valid).
+- Bounded Retries: Self-correction loops must have strict loop bounds (retry_count < 1) to prevent infinite recursion and latency runaway.
+
+2. Intent Classification in Educational Assistants
+User inputs vary across distinct operational goals:
+- explain_concept: Questions seeking factual explanation of course topics.
+- quiz_request: Requests for multiple-choice assessment questions.
+- interview_practice: Requests for interview questions or evaluation of candidate answers.
+- out_of_scope: Queries unrelated to LLM engineering (e.g., live weather, general insurance, unrelated banter) or prompt injection attacks.
+Rule-based keyword mapping provides deterministic, low-latency intent routing for predictable workflows before resorting to statistical classifiers.
+
+3. Quiz Generation and Deterministic Grading
+- Quiz Generation: LLMs generate candidate MCQs conforming to a strict JSON schema with 4 options, a 0-indexed answer key, and pedagogical explanations.
+- Quiz Validation: JSON parsing must strip code fences (```json ... ```), validate schema fields, ensure 4 options exist, and verify answer_index is an integer between 0 and 3.
+- Deterministic Grading: MCQ grading is executed strictly in application logic (comparing chosen index to answer_index). The LLM is never invoked for grading MCQs, guaranteeing zero hallucination in test scores.
+- Free-Text Interview Grading: The LLM is used with a strict rubric to assess candidate technical answers against retrieved reference passages, outputting verdict, strengths, gaps, and a model answer.
+
+4. Production API Design with FastAPI
+- Lifespan State Handler: Heavy components (sentence transformer embeddings, persisted FAISS vector index, compiled LangGraph, and LLM backend) are initialized once at server startup and cached in app.state. They are NEVER re-instantiated per request.
+- Request Validation: Pydantic schemas enforce input constraints: non-empty strings, whitespace stripping, max length of 1000 characters, and bounded quiz count (1 to 5).
+- Observability: Middleware measures wall-clock processing time, populates X-Response-Time-ms headers, and records structured audit logs with masked sensitive data.

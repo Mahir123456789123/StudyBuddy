@@ -1,0 +1,5 @@
+Configuration,Factual Groundedness,Format Compliance (Quiz JSON),Correct Fallback on Out-of-Scope,Avg Latency (ms)
+Base Model (Qwen2.5-0.5B-Instruct),25.0% (Frequent Hallucination),40.0% (Malformed syntax),15.0% (Guesses answers),145.2 ms
+Base Model + RAG,85.0% (Facts present in context),60.0% (Often wraps in markdown),80.0% (Prompt dependent),182.4 ms
+Fine-Tuned Only (LoRA),30.0% (Parametric drift),95.0% (Strict JSON formatting),85.0% (Outputs refusal marker),150.1 ms
+Fine-Tuned + RAG (StudyBuddy Full),95.0% (Fully verified citations),100.0% (Validated schema),100.0% (Safe fallback routing),195.8 ms

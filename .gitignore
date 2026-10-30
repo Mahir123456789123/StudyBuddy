@@ -1,0 +1,42 @@
+# Virtual environment
+.venv/
+env/
+venv/
+ENV/
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment secrets
+.env
+*.env
+!*.env.example
+
+# Model checkpoints and weights
+models/
+adapters/
+qlora_adapter/
+*.pt
+*.bin
+*.safetensors
+
+# Vector indexes and cache
+indexes/
+faiss_index/
+*.faiss
+*.pkl
+
+# Processed embeddings cache
+data/processed/*.index
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
