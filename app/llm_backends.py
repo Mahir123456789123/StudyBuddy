@@ -378,15 +378,22 @@ class MockLLMBackend(LLMBackend):
                 )
 
         # Handle Interview Evaluation Requests
-        if "Evaluation Rubric:" in prompt:
+        if "Evaluation Rubric:" in prompt or "Strict Evaluation Rules:" in prompt or "Candidate's Answer:" in prompt:
             return (
-                "VERDICT: Strong\n"
-                "WHAT WAS GOOD: The candidate correctly identified that LoRA freezes the original weights "
-                "and decomposes the gradient update into two low-rank matrices B and A. Mentioned rank r and alpha.\n"
-                "WHAT WAS MISSING: Could have explicitly mentioned the memory savings on optimizer states "
-                "and the target attention projection modules (q_proj, v_proj).\n"
-                "MODEL ANSWER: LoRA computes W = W_0 + (alpha/r) * B * A, reducing trainable parameters and optimizer "
-                "state memory by up to 90% while preserving pre-trained knowledge."
+                "SCORE: 8/10\n"
+                "VERDICT: Strong\n\n"
+                "WHAT WAS GOOD:\n"
+                "The candidate correctly identified that LoRA freezes the original weights "
+                "and decomposes the gradient update into two low-rank matrices B and A with rank r and alpha.\n\n"
+                "WHAT WAS MISSING:\n"
+                "[Where You Failed / Points Deducted]\n"
+                "- Could have explicitly quantified the VRAM memory savings (over 90% reduction in optimizer states).\n"
+                "- Did not name the specific target attention projection modules (q_proj, v_proj).\n\n"
+                "MODEL ANSWER:\n"
+                "[What Should Have Been in the Answer]\n"
+                "LoRA computes W = W_0 + (alpha/r) * B * A, reducing trainable parameters and optimizer "
+                "state memory by up to 90% while preserving pre-trained knowledge. Key trade-offs include "
+                "balancing rank r for capacity and alpha for gradient update scaling."
             )
 
         # Handle Concept Q&A & Prompt Injection Checks
@@ -529,16 +536,25 @@ class OllamaBackend(LLMBackend):
             ],
             "options": {
                 "temperature": temperature,
-                "num_predict": max_tokens
+                "num_predict": max_tokens,
+                "repeat_penalty": 1.2
             },
             "stream": False
         }
         try:
-            with httpx.Client(timeout=60.0) as client:
+            with httpx.Client(timeout=90.0) as client:
                 res = client.post(url, json=payload)
                 res.raise_for_status()
                 data = res.json()
                 return data.get("message", {}).get("content", "").strip()
+        except httpx.ConnectError:
+            msg = f"Ollama is offline or unreachable at {self.base_url}. Please ensure the Ollama service is running (e.g. 'ollama run {self.model_name}')."
+            logger.error(msg)
+            raise RuntimeError(msg)
+        except httpx.TimeoutException:
+            msg = f"Ollama request timed out after 90 seconds while generating with {self.model_name}."
+            logger.error(msg)
+            raise RuntimeError(msg)
         except Exception as e:
             logger.error(f"Ollama request error: {e}")
             raise RuntimeError(f"Ollama backend communication error: {e}")

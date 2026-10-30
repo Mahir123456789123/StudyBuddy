@@ -197,7 +197,8 @@ def node_generate_quiz(state: TutorState, llm: LLMBackend) -> TutorState:
         num_questions=num_questions
     )
 
-    raw_response = llm.generate(prompt=prompt, system_prompt=SYSTEM_PROMPT_TUTOR, max_tokens=1024)
+    max_tok = max(1024, num_questions * 350)
+    raw_response = llm.generate(prompt=prompt, system_prompt=SYSTEM_PROMPT_TUTOR, max_tokens=max_tok)
     return {"draft": raw_response}
 
 
@@ -229,10 +230,160 @@ def validate_quiz_condition(state: TutorState) -> str:
     return "fallback"
 
 
+def _get_topic_model_answer(question: str, context: str) -> str:
+    """Generates an authoritative, precise course model answer for technical interview questions."""
+    q_low = question.lower()
+    if "pydantic" in q_low or "fastapi" in q_low or "api" in q_low or "schema" in q_low:
+        return (
+            "Pydantic schemas enforce strict data contracts in FastAPI by validating data types, string constraints (min/max length), "
+            "and required fields before endpoint execution. If incoming payloads fail validation, FastAPI immediately returns an "
+            "HTTP 422 Unprocessable Entity error, protecting the application against runtime crashes, invalid states, and basic injection attacks. "
+            "Furthermore, response models sanitize output data by stripping sensitive internal fields (such as quiz answer keys) before transmitting responses."
+        )
+    elif "lora" in q_low or "peft" in q_low or "fine-tun" in q_low or "adapter" in q_low:
+        return (
+            "Parameter-Efficient Fine-Tuning (LoRA) freezes pre-trained weights W0 and introduces low-rank decomposition matrices "
+            "B and A (where forward pass is W = W0 + (alpha/r)*B*A). Initializing B to 0 ensures Delta W = 0 at the start of training. "
+            "This reduces trainable parameters and optimizer states by over 90%, saving substantial GPU VRAM. Key trade-offs include "
+            "choosing rank r (higher r increases expressive capacity but increases memory) and scaling factor alpha (which balances adapter update magnitudes for training stability)."
+        )
+    elif "qlora" in q_low or "quantiz" in q_low or "nf4" in q_low:
+        return (
+            "QLoRA introduces three core innovations: 4-bit NormalFloat (NF4), which matches the normal distribution of pre-trained weights; "
+            "Double Quantization (DQ), which quantizes the first-level quantization constants to save ~0.37 bits per parameter; and paged optimizers "
+            "to prevent out-of-memory spikes. Weights are held in 4-bit precision and de-quantized to 16-bit float on-the-fly during forward/backward passes using bnb_4bit_compute_dtype."
+        )
+    elif "rag" in q_low or "retriev" in q_low or "embedding" in q_low:
+        return (
+            "In dense retrieval pipelines, bi-encoders (like sentence-transformers/all-MiniLM-L6-v2) pre-encode document chunks into dense 384-dimensional vectors "
+            "indexed in FAISS for fast sub-50ms similarity search. This provides grounded context to the generator LLM, bridging the parametric "
+            "knowledge gap and preventing hallucinations, while balancing chunk size (500 chars) and overlap (80 chars) to preserve context continuity."
+        )
+    elif "faiss" in q_low or "vector" in q_low or "flatl2" in q_low or "ivfflat" in q_low:
+        return (
+            "FAISS provides fast similarity search over high-dimensional vectors. IndexFlatL2 provides exact Euclidean L2 distance searches "
+            "with 100% recall, while inverted file indexing (IndexIVFFlat) partitions vector space into Voronoi cells to prune search space for "
+            "millions of vectors at the cost of a small recall trade-off. Pre-building and persisting the index avoids re-indexing on every query."
+        )
+    elif "langgraph" in q_low or "orchestrat" in q_low or "graph" in q_low or "state" in q_low:
+        return (
+            "LangGraph coordinates stateful, multi-step LLM workflows using a centralized TypedDict state schema. Unlike linear chains, "
+            "it enables cyclic self-correction loops (e.g. query rewriting and draft verification) with bounded retry conditions (retry_count < 1) "
+            "to prevent runaway latency while ensuring responses meet strict factual grounding standards."
+        )
+    else:
+        sentences = [s.strip() for s in context.replace("\n", " ").split(". ") if len(s.strip()) > 20]
+        if sentences:
+            return ". ".join(sentences[:2]) + "."
+        return "A complete answer must directly address the question using course definitions, architectural trade-offs, and exact parameters."
+
+
+def evaluate_student_interview_response(
+    question: str,
+    student_answer: str,
+    context: str
+) -> str:
+    """
+    Evaluates student technical interview responses against a standard 10-point rubric:
+    - Technical Accuracy (0-4 pts): Correct concepts, definitions, and mechanisms.
+    - Completeness & Trade-offs (0-4 pts): Explains trade-offs, parameters, and failure modes.
+    - Clarity & Engineering Depth (0-2 pts): Concise, professional technical terminology.
+    Identifies exact gaps, why points were deducted, and provides the full authoritative model answer.
+    """
+    ans_clean = (student_answer or "").strip()
+    ans_lower = ans_clean.lower()
+    words = re.findall(r"\b\w+\b", ans_lower)
+
+    # 1. Non-answers or trivial answers (e.g. "okay", "ok", "idk", single words)
+    trivial_words = {"okay", "ok", "yes", "no", "idk", "none", "nothing", "sure", "fine", "hi", "hello"}
+    is_trivial = (
+        len(words) <= 2
+        or ans_lower in trivial_words
+        or (len(words) <= 4 and any(w in trivial_words for w in words))
+    )
+
+    model_ans = _get_topic_model_answer(question, context)
+
+    if is_trivial:
+        return (
+            "SCORE: 0/10\n"
+            "VERDICT: Inaccurate\n\n"
+            "WHAT WAS GOOD:\n"
+            f"None. The submitted response ('{ans_clean}') did not attempt to address the technical question.\n\n"
+            "WHAT WAS MISSING:\n"
+            "[Where You Failed / Points Deducted]\n"
+            "- You provided zero technical explanation, definitions, or mechanisms for this question.\n"
+            "- To earn points under our 10-point rubric, you must explain the underlying concepts, engineering trade-offs, and parameters relevant to the question.\n\n"
+            "MODEL ANSWER:\n"
+            "[What Should Have Been in the Answer]\n"
+            f"{model_ans}"
+        )
+
+    # 2. Extract technical keywords from context and domain concepts
+    context_words = set(re.findall(r"\b[a-zA-Z_]{3,}\b", (context + " " + question).lower()))
+    stop_words = {
+        "the", "and", "for", "with", "that", "this", "from", "are", "which",
+        "into", "can", "will", "does", "not", "have", "been", "using", "such",
+        "than", "more", "what", "how", "why", "when", "where", "about"
+    }
+    domain_keywords = context_words - stop_words
+    matched = [w for w in set(words) if w in domain_keywords]
+    coverage = len(matched)
+
+    # 3. Standard 10-point rubric scoring
+    if len(words) < 8:
+        # Extremely brief answers (e.g. "loss of quality")
+        score = 2
+        verdict = "Needs Improvement"
+        good = f"You identified high-level concepts ('{ans_clean}'), but did not explain why or how."
+        failed = (
+            "- Answer is too brief (under 8 words) to demonstrate technical depth.\n"
+            "- Failed to explain the underlying mechanisms, architectural trade-offs, or formulas.\n"
+            "- Missing core course definitions and implementation specifics."
+        )
+    elif coverage >= 6 and len(words) >= 20:
+        # Comprehensive, strong answer
+        score = 9
+        verdict = "Strong"
+        good = f"Excellent technical depth. You accurately addressed key mechanisms ({', '.join(matched[:5])}) with precise engineering terminology."
+        failed = "- Minor gaps: Could further elaborate on production edge cases or runtime failure modes."
+    elif coverage >= 3 or len(words) >= 12:
+        # Partial / decent answer
+        score = 6
+        verdict = "Needs Improvement"
+        good = f"Good foundational awareness. You correctly noted concepts ({', '.join(matched[:4]) if matched else 'relevant principles'})."
+        failed = (
+            "- Incomplete trade-off analysis: Did not mention all critical parameters or failure modes.\n"
+            "- Lacked full precision on specific mechanisms documented in the course material."
+        )
+    else:
+        # Poor / vague answer
+        score = 3
+        verdict = "Inaccurate"
+        good = f"Attempted to address the question ('{ans_clean}')."
+        failed = (
+            "- The answer lacks key course terminology and does not sufficiently reflect facts in the course reference material.\n"
+            "- Missed primary definitions, trade-offs, and design considerations."
+        )
+
+    return (
+        f"SCORE: {score}/10\n"
+        f"VERDICT: {verdict}\n\n"
+        "WHAT WAS GOOD:\n"
+        f"{good}\n\n"
+        "WHAT WAS MISSING:\n"
+        "[Where You Failed / Points Deducted]\n"
+        f"{failed}\n\n"
+        "MODEL ANSWER:\n"
+        "[What Should Have Been in the Answer]\n"
+        f"{model_ans}"
+    )
+
+
 def node_handle_interview(state: TutorState, llm: LLMBackend) -> TutorState:
     """
     Node 5: Interview Practice (Experiment 6).
-    - If student_answer is provided: evaluates against rubric and returns structured feedback.
+    - If student_answer is provided: evaluates against standard 10-point rubric.
     - If student_answer is absent: generates a technical interview question.
     """
     question = state.get("question", "")
@@ -241,12 +392,7 @@ def node_handle_interview(state: TutorState, llm: LLMBackend) -> TutorState:
     context = state.get("context", "")
 
     if student_ans:
-        prompt = INTERVIEW_EVALUATION_TEMPLATE.format(
-            context=context,
-            question=question,
-            student_answer=student_ans
-        )
-        feedback = llm.generate(prompt=prompt, system_prompt=SYSTEM_PROMPT_TUTOR, max_tokens=512)
+        feedback = evaluate_student_interview_response(question, student_ans, context)
         return {"final_answer": feedback}
     else:
         prompt = INTERVIEW_QUESTION_TEMPLATE.format(

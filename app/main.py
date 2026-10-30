@@ -271,9 +271,10 @@ async def ask_question_endpoint(req: AskRequest):
             user_query=req.question,
             error_message=str(e)
         )
+        err_msg = str(e) if "Ollama" in str(e) else "Error processing concept question."
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error processing concept question."
+            detail=err_msg
         )
 
 
@@ -311,9 +312,10 @@ async def generate_quiz_endpoint(req: QuizRequest):
             user_query=req.topic,
             error_message=str(e)
         )
+        err_msg = str(e) if "Ollama" in str(e) else "Error generating quiz."
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error generating quiz."
+            detail=err_msg
         )
 
 
@@ -407,9 +409,10 @@ async def interview_endpoint(req: InterviewRequest):
             latency_ms=latency_ms,
             error_message=str(e)
         )
+        err_msg = str(e) if "Ollama" in str(e) else "Error during interview practice session."
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error during interview practice session."
+            detail=err_msg
         )
 
 

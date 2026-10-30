@@ -47,12 +47,13 @@ Topic: {topic}
 Number of questions requested: {num_questions}
 
 Requirements:
-1. Generate exactly {num_questions} high-quality, conceptual multiple-choice questions based ONLY on facts in the context above.
+1. Generate exactly {num_questions} high-quality multiple-choice questions based ONLY on facts in the context above.
 2. Each question MUST have exactly 4 plausible options.
-3. Indicate the correct option index (0, 1, 2, or 3) in `answer_index`.
-4. Provide a clear pedagogical explanation justifying why the answer is correct with reference to course material.
-5. Provide the source citation matching the context.
-6. Output STRICT, VALID JSON ONLY. Do not wrap with conversational filler or markdown notes outside the JSON block.
+3. Keep each option concise (one short sentence or phrase, under 15 words). Do not write multi-sentence options.
+4. Indicate the correct option index (0, 1, 2, or 3) in `answer_index`.
+5. Provide a 1-sentence pedagogical explanation justifying why the answer is correct with reference to course material.
+6. Provide the source citation matching the context.
+7. Output STRICT, VALID JSON ONLY. Start directly with [ and end with ]. Do not wrap with conversational filler or markdown notes.
 
 Required JSON format:
 [
@@ -60,7 +61,7 @@ Required JSON format:
     "question": "Question text here?",
     "options": ["Option A", "Option B", "Option C", "Option D"],
     "answer_index": 0,
-    "explanation": "Detailed explanation here.",
+    "explanation": "One sentence explanation here.",
     "source": "Document and page reference"
   }}
 ]
@@ -87,17 +88,18 @@ INTERVIEW_EVALUATION_TEMPLATE = """You are an expert technical interviewer evalu
 </COURSE_REFERENCE_MATERIAL>
 
 Interview Question: {question}
-Candidate's Answer: {student_answer}
+Candidate's Answer: "{student_answer}"
 
-Evaluation Rubric:
-- Accuracy: Does the answer reflect the factual technical details in the course reference material?
-- Completeness: Did the candidate mention key trade-offs, parameters, or mechanisms?
-- Clarity: Is the explanation concise and professional?
+Strict Evaluation Rules:
+1. Under WHAT WAS GOOD: Evaluate ONLY what the candidate actually wrote in "{student_answer}". If the answer is extremely brief or lacking (e.g., fewer than 10 words like "loss of quality"), state: "The candidate briefly touched on the topic, but provided very few technical specifics." Never claim the candidate explained concepts from the reference material that they did not mention!
+2. Under WHAT WAS MISSING: List the specific technical trade-offs, mechanisms, or parameters from the reference material that the candidate omitted.
+3. Under VERDICT: Choose [Strong | Needs Improvement | Inaccurate].
+4. Under MODEL ANSWER: Provide a 1-2 sentence model answer based on the reference material.
 
 Provide structured feedback in this exact format:
 VERDICT: [Strong | Needs Improvement | Inaccurate]
-WHAT WAS GOOD: [Specific positive aspects of the candidate's answer]
-WHAT WAS MISSING: [Technical gaps, missing trade-offs, or inaccuracies based on course material]
+WHAT WAS GOOD: [Specific positive aspects strictly from Candidate's Answer]
+WHAT WAS MISSING: [Technical gaps and missing trade-offs based on course material]
 MODEL ANSWER: [A 1-2 sentence ideal model answer]
 
 Note: This evaluation is an approximate pedagogical assessment based strictly on course literature."""

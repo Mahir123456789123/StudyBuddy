@@ -9,7 +9,13 @@ Provides clean, reusable functions for:
 
 from typing import Any, Dict, List, Optional
 from app.graph import StudyBuddyWorkflow, TutorState
-from app.quiz import QuizClientItem, QuizItem, grade_quiz, quiz_store
+from app.quiz import (
+    QuizClientItem,
+    QuizItem,
+    get_topic_fallback_quiz,
+    grade_quiz,
+    quiz_store,
+)
 
 
 def ask_concept(
@@ -59,22 +65,16 @@ def generate_quiz_session(
         for item in raw_items
     ]
 
-    if not quiz_items:
-        # Fallback items if LLM generation was completely empty
-        quiz_items = [
-            QuizItem(
-                question=f"What is a primary principle of {topic}?",
-                options=[
-                    f"Parameter efficiency in {topic}",
-                    "Ignoring all loss functions",
-                    "Replacing neural networks with regex",
-                    "Zero memory usage"
-                ],
-                answer_index=0,
-                explanation=f"A key objective of {topic} is computational and parameter efficiency.",
-                source="Course Materials"
-            )
-        ]
+    # If the LLM returned fewer questions than requested (or failed completely),
+    # top up from the topic question bank so the student always receives the exact count requested.
+    if len(quiz_items) < num_questions:
+        needed = num_questions - len(quiz_items)
+        supplementary = get_topic_fallback_quiz(topic, needed=needed)
+        for supp_item in supplementary:
+            if not any(it.question == supp_item.question for it in quiz_items):
+                quiz_items.append(supp_item)
+            if len(quiz_items) >= num_questions:
+                break
 
     # Save to server-side memory store
     quiz_id = quiz_store.save_quiz(quiz_items)

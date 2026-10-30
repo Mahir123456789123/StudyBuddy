@@ -3,8 +3,15 @@ Integration Tests for StudyBuddy FastAPI Endpoints (tests/test_api.py).
 Uses TestClient with mock LLM backend. Runs on CPU with no network requirements.
 """
 
+import os
+# Force mock backend for reproducible, offline unit testing
+os.environ["LLM_BACKEND"] = "mock"
+
 import pytest
 from fastapi.testclient import TestClient
+
+from app.config import settings
+settings.LLM_BACKEND = "mock"
 
 from app.main import app
 from app.prompts import FALLBACK_TEXT
