@@ -1,7 +1,7 @@
 Scenario,Endpoint,Expected Status,Observed Status,Latency (ms),Outcome,Header Present
-Health Probe,GET /health,200,200,6.54 ms,PASS,Yes
-Supported Concept Question,POST /ask,200,200,6965.74 ms,PASS,Yes
-Unsupported Question,POST /ask,200,200,14.36 ms,PASS,Yes
-Empty Question Rejection,POST /ask,422,422,7.76 ms,PASS,Yes
-Over-Length Question Rejection,POST /ask,422,422,5.16 ms,PASS,Yes
-Backend Unavailable Simulation,POST /ask,500,200,7622.74 ms,FAIL,Yes
+Health Probe,GET /health,200,200,3.64 ms,PASS,Yes
+Supported Concept Question,POST /ask,200,200,2050.24 ms,PASS,Yes
+Unsupported Question,POST /ask,200,200,21.74 ms,PASS,Yes
+Empty Question Rejection,POST /ask,422,422,6.04 ms,PASS,Yes
+Over-Length Question Rejection,POST /ask,422,422,2.43 ms,PASS,Yes
+Backend Unavailable Simulation,POST /ask,500,500,14.51 ms,PASS,Yes

@@ -29,7 +29,8 @@ class LLMBackend(abc.ABC):
         prompt: str,
         system_prompt: Optional[str] = None,
         max_tokens: int = 512,
-        temperature: float = 0.2
+        temperature: float = 0.2,
+        use_adapter: bool = True
     ) -> str:
         """Generates completion text from the backend."""
         pass
@@ -50,7 +51,8 @@ class MockLLMBackend(LLMBackend):
         prompt: str,
         system_prompt: Optional[str] = None,
         max_tokens: int = 512,
-        temperature: float = 0.2
+        temperature: float = 0.2,
+        use_adapter: bool = True
     ) -> str:
         if self.simulate_failure or "SIMULATE_FAILURE" in prompt:
             raise RuntimeError("Simulated backend communication failure")
@@ -477,15 +479,18 @@ class HFLocalBackend(LLMBackend):
         prompt: str,
         system_prompt: Optional[str] = None,
         max_tokens: int = 512,
-        temperature: float = 0.2
+        temperature: float = 0.2,
+        use_adapter: bool = True
     ) -> str:
+        if "SIMULATE_FAILURE" in prompt:
+            raise RuntimeError("Simulated LLM backend outage for testing failure handling.")
+
         import torch
 
-        sys_p = system_prompt or SYSTEM_PROMPT_TUTOR
-        messages = [
-            {"role": "system", "content": sys_p},
-            {"role": "user", "content": prompt}
-        ]
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
 
         if hasattr(self.tokenizer, "apply_chat_template"):
             formatted_prompt = self.tokenizer.apply_chat_template(
@@ -494,19 +499,29 @@ class HFLocalBackend(LLMBackend):
                 add_generation_prompt=True
             )
         else:
-            formatted_prompt = f"System: {sys_p}\nUser: {prompt}\nAssistant:"
+            formatted_prompt = f"System: {system_prompt}\nUser: {prompt}\nAssistant:" if system_prompt else f"User: {prompt}\nAssistant:"
 
         inputs = self.tokenizer(formatted_prompt, return_tensors="pt").to(self.model.device)
         input_len = inputs["input_ids"].shape[1]
 
         with torch.no_grad():
-            outputs = self.model.generate(
-                **inputs,
-                max_new_tokens=max_tokens,
-                temperature=temperature if temperature > 0 else 0.1,
-                do_sample=(temperature > 0),
-                pad_token_id=self.tokenizer.eos_token_id
-            )
+            if hasattr(self.model, "disable_adapter") and not use_adapter:
+                with self.model.disable_adapter():
+                    outputs = self.model.generate(
+                        **inputs,
+                        max_new_tokens=max_tokens,
+                        temperature=temperature if temperature > 0 else 0.1,
+                        do_sample=(temperature > 0),
+                        pad_token_id=self.tokenizer.eos_token_id
+                    )
+            else:
+                outputs = self.model.generate(
+                    **inputs,
+                    max_new_tokens=max_tokens,
+                    temperature=temperature if temperature > 0 else 0.1,
+                    do_sample=(temperature > 0),
+                    pad_token_id=self.tokenizer.eos_token_id
+                )
 
         gen_tokens = outputs[0][input_len:]
         response = self.tokenizer.decode(gen_tokens, skip_special_tokens=True).strip()
@@ -525,8 +540,12 @@ class OllamaBackend(LLMBackend):
         prompt: str,
         system_prompt: Optional[str] = None,
         max_tokens: int = 512,
-        temperature: float = 0.2
+        temperature: float = 0.2,
+        use_adapter: bool = True
     ) -> str:
+        if "SIMULATE_FAILURE" in prompt:
+            raise RuntimeError("Simulated LLM backend outage for testing failure handling.")
+
         url = f"{self.base_url}/api/chat"
         payload = {
             "model": self.model_name,
@@ -573,8 +592,12 @@ class CloudBackend(LLMBackend):
         prompt: str,
         system_prompt: Optional[str] = None,
         max_tokens: int = 512,
-        temperature: float = 0.2
+        temperature: float = 0.2,
+        use_adapter: bool = True
     ) -> str:
+        if "SIMULATE_FAILURE" in prompt:
+            raise RuntimeError("Simulated LLM backend outage for testing failure handling.")
+
         url = f"{self.api_base}/chat/completions"
         headers = {
             "Content-Type": "application/json",

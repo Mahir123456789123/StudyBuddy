@@ -201,10 +201,10 @@ Generated tables are exported to `eval/results/` and summarized in `report/obser
 | Exp | Description | Key Findings / Winning Configuration |
 |---|---|---|
 | **Exp 1** | Baseline DistilGPT-2 Pipeline | Full causal LM fine-tuning yields poor instruction following; confirms need for instruction-tuned base model (`Qwen2.5-0.5B-Instruct`). |
-| **Exp 2** | LoRA Hyperparameter Study | **Run B Winner**: $\text{lr}=2\times 10^{-4}$, $\text{epochs}=2$, $\text{rank } r=4$, $\alpha=16$. Trains 0.055% parameters (train loss: 3.6788) with highest holdout quality score (2.65 / 5.0 across all 20 eval questions, selected via code). Run D achieved lowest loss (3.2007) but lower generalization (2.40). |
+| **Exp 2** | LoRA Hyperparameter Study | **Run C Winner**: $\text{lr}=2\times 10^{-4}$, $\text{epochs}=2$, $\text{rank } r=8$, $\alpha=16$. Trains 0.109% parameters (train loss: 3.6420) with highest holdout quality score (2.55 / 5.0 across all 20 eval questions, selected via code) and saved in `models/adapter/`. Run B achieved 2.52 with half the parameter count ($r=4$, 0.055%), effectively tied with a negligible 0.03 gap. Run D achieved lowest loss (3.2009) with 2.45 quality. |
 | **Exp 3** | Quantization & QLoRA | Profiled on NVIDIA GeForce RTX 4050 Laptop GPU (CUDA 12.4). NF4 with Double Quantization cuts allocated VRAM by **52.8%** (from 942.3 MB down to 444.6 MB) with 3929.9 ms generation latency. |
 | **Exp 4** | Raw FAISS RAG Baseline | Validates dense bi-encoder cosine/L2 mapping with native `faiss.IndexFlatL2` with `faiss-cpu`, achieving 100% precision on in-domain course chunks. |
-| **Exp 5** | Production Ingestion & Index | Multi-format loader (17 lecture PDFs, student notes, DOCX glossary, TXT notes) indexing 918 chunks into FAISS vector store. Hit Rate: Hit@1=35.7%, Hit@3=64.3%, Hit@5=85.7%. |
+| **Exp 5** | Production Ingestion & Index | Multi-format loader (17 lecture PDFs, student notes, DOCX glossary, TXT notes) indexing 918 chunks into FAISS vector store. Chunk Size Trade-offs: Chunk 800 achieved highest Hit@3 (85.7%, 12/14) with 600 broad chunks; Chunk 300 achieved highest Hit@1 (42.9%, 6/14) with 1,460 granular chunks; Chunk 500 achieved 64.3% Hit@3 (9/14) with 918 chunks. In this small curriculum set ($N=14$ in-scope questions), each question represents ~7.1 percentage points ($\pm 7.1\%$). |
 | **Exp 6** | LangGraph Orchestration | Self-correction loop with bounded retry ($\text{retries} < 1$) and prompt-injection defense. |
 | **Exp 7** | Production FastAPI Service | Sub-25ms P95 API overhead, deterministic quiz grading, structured JSON audit logging without credential leaks. |
 
@@ -215,7 +215,7 @@ Generated tables are exported to `eval/results/` and summarized in `report/obser
 While StudyBuddy satisfies all pedagogical and architectural requirements, the following technical limitations are acknowledged for viva defense:
 
 1. **Small-Model Weaknesses**: The base model `Qwen2.5-0.5B-Instruct` is compact (490M parameters). While fast and memory-efficient, its complex logical multi-hop reasoning is lower than larger foundation models (7B or 70B).
-2. **Fine-Tuning Helpfulness Bias on Fallbacks**: In our 4-way evaluation, Fine-Tuned + RAG exhibits a ~70% correct fallback rate on ambiguous/unsupported queries compared to ~90% for the Base Model. This occurs because conversational fine-tuning instills a pedagogical prior to attempt explaining related concepts. StudyBuddy's LangGraph pipeline directly remedies this by deterministically intercepting ungrounded intents at the graph root.
+2. **Fine-Tuning Helpfulness Bias on Fallbacks**: In our 4-way evaluation, Fine-Tuned + RAG achieves an 85.0% correct fallback rate on ambiguous/unsupported queries compared to 70.0% for the un-tuned Base Model and 80.0% for Base + RAG, while scoring 3.60 / 5.0 on genuine holdout outputs. When queries fall outside course context, conversational training encourages constructive guidance; StudyBuddy's LangGraph pipeline directly remedies this by deterministically intercepting ungrounded intents at the graph root.
 3. **Rule-Based Intent Classifier**: Intent routing relies on keyword heuristics for deterministic zero-latency routing. In high-entropy conversational settings, a small trained classifier or embedding-based semantic router would handle edge cases more gracefully.
 4. **Prompt Injection in Documents**: While the tutor prompt treats context as reference material, sophisticated indirect prompt injection embedded within raw course materials remains a known risk in uncurated vector stores.
 5. **In-Memory Quiz Session Store**: Active quiz sessions are held in application RAM with a capacity cap (`MAX_STORED_QUIZZES=200`). Distributed multi-worker deployments require persistent caching (e.g. Redis).
@@ -224,5 +224,4 @@ While StudyBuddy satisfies all pedagogical and architectural requirements, the f
    - **Transport Security**: Running on local HTTP; production requires TLS termination via HTTPS/reverse proxy.
    - **Rate Limiting**: Missing token-bucket rate limiting against DoS requests.
    - **Observability**: Uses stdout structured JSON logging; enterprise production requires OpenTelemetry tracing and Prometheus metrics.
-   - **Disaster Recovery**: Vector index is stored locally on disk; cloud storage (S3/GCS snapshots) needed for high availability.
    - **Disaster Recovery**: Vector index is stored locally on disk; cloud storage (S3/GCS snapshots) needed for high availability.

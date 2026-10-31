@@ -1,4 +1,4 @@
 Chunk Size,Chunk Overlap,Total Chunks,Hit@1 (%),Hit@3 (%),Trade-off Observation
-300,50,1460,42.9%,78.6%,Granular but fragmented context
-500,80,918,35.7%,64.3%,Optimal balance of coherence and specificity
-800,120,600,35.7%,85.7%,"Broad context, risk of tangential dilution"
+300,50,1460,42.9%,78.6%,Highest Hit@1 (6/14) with 1460 granular chunks; short windows risk boundary fragmentation
+500,80,918,35.7%,64.3%,Standard production baseline (918 chunks); lowest Hit@3 (9/14) on small N=14 sample (+/-7.1% per question)
+800,120,600,35.7%,85.7%,Highest Hit@3 (12/14) with 600 broad chunks; wider context captures terms but risks tangential dilution
