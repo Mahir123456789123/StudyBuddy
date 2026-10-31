@@ -21,6 +21,8 @@ htmlcov/
 models/
 adapters/
 qlora_adapter/
+notebooks/results_*/
+results_*/
 *.pt
 *.bin
 *.safetensors

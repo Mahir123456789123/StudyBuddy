@@ -271,10 +271,10 @@ async def ask_question_endpoint(req: AskRequest):
             user_query=req.question,
             error_message=str(e)
         )
-        err_msg = str(e) if "Ollama" in str(e) else "Error processing concept question."
+        err_msg = str(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=err_msg
+            detail=f"Error processing concept question: {err_msg}"
         )
 
 

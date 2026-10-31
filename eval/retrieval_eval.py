@@ -167,8 +167,12 @@ def run_chunk_size_study(raw_dir: str = "data/raw", eval_path: str = "data/finet
     # Write Markdown summary document
     with open("eval/results/retrieval_eval_summary.md", "w", encoding="utf-8") as f:
         f.write("# Retrieval Evaluation Results\n\n")
-        f.write("## 1. Chunk Size Comparison\n\n")
+        f.write("## 1. Chunk Size Comparison (Real 401 Document Sections, 19 Canonical Files)\n\n")
         f.write(df_chunks.to_markdown(index=False) + "\n\n")
+        if os.path.exists("eval/results/retrieval_hit_rates.csv"):
+            df_hr = pd.read_csv("eval/results/retrieval_hit_rates.csv")
+            f.write("## 2. Hit Rate @ k on Production FAISS Index (918 Chunks)\n\n")
+            f.write(df_hr.to_markdown(index=False) + "\n\n")
 
     return df_chunks
 

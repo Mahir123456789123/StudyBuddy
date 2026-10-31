@@ -410,9 +410,30 @@ def node_rewrite_query(state: TutorState) -> TutorState:
     """
     current_q = state.get("search_query") or state.get("question") or ""
     current_retries = state.get("retry_count", 0)
+    q_lower = current_q.lower()
 
-    # Append broad domain concepts to widen retrieval scope
-    rewritten = f"{current_q} LLM fine-tuning LoRA QLoRA FAISS embeddings LangGraph architecture"
+    # Clean conversational filler
+    cleaned_terms = [w for w in re.findall(r"\b[a-zA-Z0-9_\-\.]+\b", current_q)
+                     if w.lower() not in {"hi", "hello", "hey", "please", "can", "you", "tell", "me", "whats", "what"}]
+    base_query = " ".join(cleaned_terms) if cleaned_terms else current_q
+
+    # Target-specific domain expansions rather than blanket LoRA pollution
+    if any(k in q_lower for k in ["rag", "retriev", "chunk", "bi-encoder", "dense"]):
+        expansion = "Retrieval-Augmented Generation dense retrieval context passages embeddings"
+    elif any(k in q_lower for k in ["lora", "adapter", "peft", "fine-tun", "rank", "alpha"]):
+        expansion = "Low-Rank Adaptation PEFT parameter-efficient fine-tuning adapter weights"
+    elif any(k in q_lower for k in ["qlora", "nf4", "quantiz", "double quant", "bnb"]):
+        expansion = "QLoRA NormalFloat4 NF4 double quantization 4-bit base model"
+    elif any(k in q_lower for k in ["faiss", "vector", "flatl2", "ivfflat", "index"]):
+        expansion = "FAISS vector database similarity search IndexFlatL2 embeddings"
+    elif any(k in q_lower for k in ["langgraph", "graph", "state", "retry", "orchestrat"]):
+        expansion = "LangGraph stateful workflow nodes edges conditional routing"
+    elif any(k in q_lower for k in ["fastapi", "pydantic", "endpoint", "api", "lifespan"]):
+        expansion = "FastAPI lifespan validation Pydantic models REST API deployment"
+    else:
+        expansion = "LLM Engineering course concepts and definitions"
+
+    rewritten = f"{base_query} {expansion}".strip()
     logger.info(f"[Graph: rewrite_query] Retry {current_retries + 1}: '{current_q}' -> '{rewritten}'")
 
     return {

@@ -32,17 +32,18 @@ studybuddy/
   .env.example                           # Template environment settings
   .gitignore                             # Version control exclusions
   data/
-    raw/                                 # 4 source documents (PDF, TXT, DOCX)
-      lab_manual_fine_tuning.pdf
-      lecture_slides_rag_and_embeddings.pdf
-      course_notes_orchestration_and_apis.txt
-      glossary_of_llm_terms.docx
+    raw/                                 # 19 canonical course documents (PDF, TXT, DOCX)
+      Lecture1LLM_FineTuning_PartA_Foundations_.pdf
+      Lecture2Introduction to Fine-Tuning LLMs.pdf
+      Lecture3LLM_FineTuning_Process_and_Taxonomy_.pdf
+      Lecture4LLM_FineTuning_PEFT_LoRA_QLoRA_.pdf
+      ... [17 Lecture PDFs, Student Notes, TXT Notes, DOCX Glossary]
     processed/                           # Chunk inspection dump
       chunks_dump.json
     finetune/
-      train.jsonl                        # 600 training pairs (chat template format)
+      train.jsonl                        # 600 training pairs grounded in real course lectures
       review_sample.csv                  # 50 random rows for human verification
-      eval_questions.jsonl               # 20 strictly held-out unseen evaluation questions
+      eval_questions.jsonl               # 20 strictly held-out unseen evaluation questions (0 overlap)
   notebooks/
     01_finetune_pipeline_distilgpt2.ipynb # Exp 1: Baseline pipeline
     02_lora_hyperparameter_study.ipynb    # Exp 2: LoRA hyperparameter optimization
@@ -200,10 +201,10 @@ Generated tables are exported to `eval/results/` and summarized in `report/obser
 | Exp | Description | Key Findings / Winning Configuration |
 |---|---|---|
 | **Exp 1** | Baseline DistilGPT-2 Pipeline | Full causal LM fine-tuning yields poor instruction following; confirms need for instruction-tuned base model (`Qwen2.5-0.5B-Instruct`). |
-| **Exp 2** | LoRA Hyperparameter Study | **Run B Winner**: $\text{lr}=2\times 10^{-4}$, $\text{epochs}=2$, $\text{rank } r=4$, $\alpha=16$. Trains 0.055% parameters (train loss: 3.9252) with optimal qualitative holdout score (3.83 / 5.0). |
-| **Exp 3** | Quantization & QLoRA | NF4 with Double Quantization cuts weight VRAM by ~63.6% (1,050 MB down to 382 MB) with negligible latency overhead (145.2 ms to 218.4 ms). |
-| **Exp 4** | Raw FAISS RAG Baseline | Validates dense bi-encoder cosine/L2 mapping with native `faiss.IndexFlatL2` achieving 100% precision on in-domain course chunks. |
-| **Exp 5** | Production Ingestion & Index | Multi-format loader (17 lecture PDFs, student notes, DOCX glossary, TXT notes) indexing 918 chunks into FAISS vector store. |
+| **Exp 2** | LoRA Hyperparameter Study | **Run B Winner**: $\text{lr}=2\times 10^{-4}$, $\text{epochs}=2$, $\text{rank } r=4$, $\alpha=16$. Trains 0.055% parameters (train loss: 3.6788) with highest holdout quality score (2.65 / 5.0 across all 20 eval questions, selected via code). Run D achieved lowest loss (3.2007) but lower generalization (2.40). |
+| **Exp 3** | Quantization & QLoRA | Profiled on NVIDIA GeForce RTX 4050 Laptop GPU (CUDA 12.4). NF4 with Double Quantization cuts allocated VRAM by **52.8%** (from 942.3 MB down to 444.6 MB) with 3929.9 ms generation latency. |
+| **Exp 4** | Raw FAISS RAG Baseline | Validates dense bi-encoder cosine/L2 mapping with native `faiss.IndexFlatL2` with `faiss-cpu`, achieving 100% precision on in-domain course chunks. |
+| **Exp 5** | Production Ingestion & Index | Multi-format loader (17 lecture PDFs, student notes, DOCX glossary, TXT notes) indexing 918 chunks into FAISS vector store. Hit Rate: Hit@1=35.7%, Hit@3=64.3%, Hit@5=85.7%. |
 | **Exp 6** | LangGraph Orchestration | Self-correction loop with bounded retry ($\text{retries} < 1$) and prompt-injection defense. |
 | **Exp 7** | Production FastAPI Service | Sub-25ms P95 API overhead, deterministic quiz grading, structured JSON audit logging without credential leaks. |
 
@@ -214,7 +215,7 @@ Generated tables are exported to `eval/results/` and summarized in `report/obser
 While StudyBuddy satisfies all pedagogical and architectural requirements, the following technical limitations are acknowledged for viva defense:
 
 1. **Small-Model Weaknesses**: The base model `Qwen2.5-0.5B-Instruct` is compact (490M parameters). While fast and memory-efficient, its complex logical multi-hop reasoning is lower than larger foundation models (7B or 70B).
-2. **Parametric Hallucination Without RAG**: As demonstrated in our 4-way evaluation, fine-tuning without retrieval results in a 70% hallucination rate on niche hyperparameter details.
+2. **Fine-Tuning Helpfulness Bias on Fallbacks**: In our 4-way evaluation, Fine-Tuned + RAG exhibits a ~70% correct fallback rate on ambiguous/unsupported queries compared to ~90% for the Base Model. This occurs because conversational fine-tuning instills a pedagogical prior to attempt explaining related concepts. StudyBuddy's LangGraph pipeline directly remedies this by deterministically intercepting ungrounded intents at the graph root.
 3. **Rule-Based Intent Classifier**: Intent routing relies on keyword heuristics for deterministic zero-latency routing. In high-entropy conversational settings, a small trained classifier or embedding-based semantic router would handle edge cases more gracefully.
 4. **Prompt Injection in Documents**: While the tutor prompt treats context as reference material, sophisticated indirect prompt injection embedded within raw course materials remains a known risk in uncurated vector stores.
 5. **In-Memory Quiz Session Store**: Active quiz sessions are held in application RAM with a capacity cap (`MAX_STORED_QUIZZES=200`). Distributed multi-worker deployments require persistent caching (e.g. Redis).
@@ -223,4 +224,5 @@ While StudyBuddy satisfies all pedagogical and architectural requirements, the f
    - **Transport Security**: Running on local HTTP; production requires TLS termination via HTTPS/reverse proxy.
    - **Rate Limiting**: Missing token-bucket rate limiting against DoS requests.
    - **Observability**: Uses stdout structured JSON logging; enterprise production requires OpenTelemetry tracing and Prometheus metrics.
+   - **Disaster Recovery**: Vector index is stored locally on disk; cloud storage (S3/GCS snapshots) needed for high availability.
    - **Disaster Recovery**: Vector index is stored locally on disk; cloud storage (S3/GCS snapshots) needed for high availability.
