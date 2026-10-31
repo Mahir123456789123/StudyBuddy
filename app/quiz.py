@@ -168,8 +168,10 @@ def validate_quiz_json(raw_text: str) -> List[QuizItem]:
             continue
 
         options = [str(opt).strip() for opt in raw_options]
-        # Validate that all options are non-empty
+        # Validate that all options are non-empty and all 4 are distinct
         if any(len(opt) == 0 for opt in options):
+            continue
+        if len(set(opt.lower() for opt in options)) < 4:
             continue
 
         try:
@@ -177,6 +179,13 @@ def validate_quiz_json(raw_text: str) -> List[QuizItem]:
             if not (0 <= answer_idx <= 3):
                 continue
         except (TypeError, ValueError):
+            continue
+
+        # Prevent duplicate questions or identical option sets across the quiz
+        if any(item.question.lower() == q_text.lower() for item in validated_items):
+            continue
+        opt_signature = tuple(sorted(opt.lower() for opt in options))
+        if any(tuple(sorted(o.lower() for o in item.options)) == opt_signature for item in validated_items):
             continue
 
         validated_items.append(

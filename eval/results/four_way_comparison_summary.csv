@@ -1,5 +1,5 @@
 Configuration,Backend,Factual Groundedness,Format Compliance,Correct Fallback / Refusal,Sample Manual Score (1-5),Avg Latency (ms)
-Base Model,"hf_local (Qwen/Qwen2.5-0.5B-Instruct + LoRA: [Run_C, r=8 from models/adapter/])",70.0%,90.0%,70.0%,3.58 / 5.0,4363.4 ms
-Base + RAG,"hf_local (Qwen/Qwen2.5-0.5B-Instruct + LoRA: [Run_C, r=8 from models/adapter/])",80.0%,70.0%,80.0%,3.75 / 5.0,4303.1 ms
-Fine-Tuned Only,"hf_local (Qwen/Qwen2.5-0.5B-Instruct + LoRA: [Run_C, r=8 from models/adapter/])",55.0%,30.0%,85.0%,3.17 / 5.0,3106.5 ms
-Fine-Tuned + RAG,"hf_local (Qwen/Qwen2.5-0.5B-Instruct + LoRA: [Run_C, r=8 from models/adapter/])",75.0%,30.0%,85.0%,3.60 / 5.0,4441.7 ms
+Base Model,"hf_local (Qwen/Qwen2.5-0.5B-Instruct + LoRA: [Run_C, r=8 from models/adapter/])",30.0%,70.0%,70.0%,2.33 / 5.0,7016.3 ms
+Base + RAG,"hf_local (Qwen/Qwen2.5-0.5B-Instruct + LoRA: [Run_C, r=8 from models/adapter/])",30.0%,45.0%,70.0%,2.46 / 5.0,6586.4 ms
+Fine-Tuned Only,"hf_local (Qwen/Qwen2.5-0.5B-Instruct + LoRA: [Run_C, r=8 from models/adapter/])",15.0%,25.0%,80.0%,2.16 / 5.0,4182.0 ms
+Fine-Tuned + RAG,"hf_local (Qwen/Qwen2.5-0.5B-Instruct + LoRA: [Run_C, r=8 from models/adapter/])",55.0%,35.0%,85.0%,3.40 / 5.0,6202.7 ms

@@ -78,13 +78,22 @@ def node_classify_intent(state: TutorState) -> TutorState:
     Applies rule-based heuristic classification on user input.
     """
     question = (state.get("question") or "").strip().lower()
+    topic = (state.get("topic") or "").strip().lower()
     mode = state.get("mode", "ask")
 
     # Direct mode overrides
     if mode == "quiz":
-        intent = "quiz_request"
+        # If topic was explicitly provided and has no course keywords, or has injection/unsupported keywords
+        if topic and (any(bad in topic for bad in INTENT_KEYWORDS["injection_or_unsupported"])
+                      or not any(t in topic for t in INTENT_KEYWORDS["in_scope_concepts"])):
+            intent = "out_of_scope"
+        else:
+            intent = "quiz_request"
     elif mode == "interview":
-        intent = "interview_practice"
+        if topic and any(bad in topic for bad in INTENT_KEYWORDS["injection_or_unsupported"]):
+            intent = "out_of_scope"
+        else:
+            intent = "interview_practice"
     else:
         # Check for prompt injection or explicit out-of-scope topics
         if any(bad in question for bad in INTENT_KEYWORDS["injection_or_unsupported"]):
@@ -98,10 +107,18 @@ def node_classify_intent(state: TutorState) -> TutorState:
         else:
             intent = "out_of_scope"
 
+    # Determine optimal search query for vector retrieval
+    search_q = state.get("search_query")
+    if not search_q:
+        if mode in ("quiz", "interview") and state.get("topic"):
+            search_q = state.get("topic")
+        else:
+            search_q = state.get("question", "")
+
     logger.debug(f"[Graph: classify_intent] Question='{state.get('question')[:40]}...' -> Intent='{intent}'")
     return {
         "intent": intent,
-        "search_query": state.get("search_query") or state.get("question", ""),
+        "search_query": search_q,
         "retry_count": state.get("retry_count", 0)
     }
 
@@ -143,9 +160,17 @@ def node_draft_answer(state: TutorState, llm: LLMBackend) -> TutorState:
     question = state.get("question", "")
     context = state.get("context", "")
 
+    # Clean casual conversational greetings (e.g. "hi \n whats rag" -> "What is rag?")
+    clean_q = question.strip()
+    match = re.match(r"^(?:hi|hello|hey|dear tutor)[,\s\n]+(?:what\s+is|whats|tell\s+me\s+about|explain)\s+(.+)$", clean_q, re.IGNORECASE)
+    if match:
+        effective_q = f"What is {match.group(1).strip()}?"
+    else:
+        effective_q = clean_q
+
     prompt = CONCEPT_QA_TEMPLATE.format(
         context=context,
-        question=question,
+        question=effective_q,
         marker=INSUFFICIENT_CONTEXT_MARKER
     )
 
@@ -395,11 +420,52 @@ def node_handle_interview(state: TutorState, llm: LLMBackend) -> TutorState:
         feedback = evaluate_student_interview_response(question, student_ans, context)
         return {"final_answer": feedback}
     else:
+        t_low = topic.lower()
+        if not any(k in t_low for k in INTENT_KEYWORDS["in_scope_concepts"]):
+            return {
+                "final_answer": (
+                    f"Notice: The topic '{topic}' is not in the LLM Engineering course syllabus. "
+                    "Please select an authorized topic: LoRA, QLoRA, RAG & Embeddings, FAISS Vector Search, LangGraph Orchestration, or FastAPI Deployment."
+                )
+            }
+
         prompt = INTERVIEW_QUESTION_TEMPLATE.format(
             context=context,
             topic=topic
         )
         interview_q = llm.generate(prompt=prompt, system_prompt=SYSTEM_PROMPT_TUTOR, max_tokens=256)
+        if not interview_q or len(interview_q.strip()) < 15:
+            # High-quality fallback interview questions per topic
+            if any(k in t_low for k in ["rag", "retriev", "dense", "bi-encoder", "minilm", "embedding", "chunk"]):
+                interview_q = (
+                    "In dense retrieval architectures, explain how bi-encoders differ from cross-encoders in computation and latency. "
+                    "Why does our course use sentence-transformers/all-MiniLM-L6-v2 for vector indexing instead of cross-encoder scoring per query?"
+                )
+            elif any(k in t_low for k in ["faiss", "index", "vector", "flatl2", "ivfflat"]):
+                interview_q = (
+                    "Compare faiss.IndexFlatL2 with inverted file indexing (IndexIVFFlat). "
+                    "At what knowledge base scale does exact L2 search become a bottleneck, and how do clustering techniques mitigate search latency while affecting recall?"
+                )
+            elif any(k in t_low for k in ["qlora", "quantiz", "nf4", "double quant", "bitsandbytes"]):
+                interview_q = (
+                    "What are the three core algorithmic innovations introduced by QLoRA? "
+                    "Explain why uniform INT4 quantization introduces higher error than NormalFloat4 (NF4) for foundation model weights."
+                )
+            elif any(k in t_low for k in ["langgraph", "orchestrat", "graph", "workflow", "state", "retry"]):
+                interview_q = (
+                    "How does LangGraph enable cyclic self-correction loops compared to linear RAG chains? "
+                    "How do bounded retries (retry_count < 1) protect against latency runaway when a retrieval step fails verification?"
+                )
+            elif any(k in t_low for k in ["fastapi", "api", "production", "endpoint", "pydantic", "lifespan"]):
+                interview_q = (
+                    "Explain why heavy RAG components (embedding models, FAISS vector indexes, LLM backends) must be initialized "
+                    "in a FastAPI lifespan context manager rather than inside individual endpoint handlers."
+                )
+            else:
+                interview_q = (
+                    "Explain the mathematical formulation of LoRA. How do rank r and scaling factor alpha "
+                    "influence training stability and parameter efficiency in Qwen2.5-0.5B?"
+                )
         return {"final_answer": interview_q}
 
 
